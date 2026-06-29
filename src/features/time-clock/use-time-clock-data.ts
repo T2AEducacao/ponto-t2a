@@ -2,13 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 
-import {
-  attendanceSeries,
-  clockRecords as mockClockRecords,
-  employees as mockEmployees,
-  entryDistribution,
-  workSites as mockWorkSites,
-} from "./mock-data";
 import type { ClockRecord, Employee, WorkSite } from "./types";
 
 function mapEmployee(row: {
@@ -89,8 +82,9 @@ function mapClockRecord(row: {
   };
 }
 
-export function useTimeClockData() {
+export function useTimeClockData({ enabled }: { enabled: boolean }) {
   return useQuery({
+    enabled,
     queryKey: ["time-clock-dashboard"],
     queryFn: async () => {
       const [employeesResult, workSitesResult, recordsResult] = await Promise.all([
@@ -104,23 +98,15 @@ export function useTimeClockData() {
       ]);
 
       if (employeesResult.error || workSitesResult.error || recordsResult.error) {
-        return {
-          employees: mockEmployees,
-          workSites: mockWorkSites,
-          clockRecords: mockClockRecords,
-          attendanceSeries,
-          entryDistribution,
-          source: "mock" as const,
-        };
+        throw employeesResult.error ?? workSitesResult.error ?? recordsResult.error;
       }
 
       return {
         employees: employeesResult.data.map(mapEmployee),
         workSites: workSitesResult.data.map(mapWorkSite),
         clockRecords: recordsResult.data.map(mapClockRecord),
-        attendanceSeries,
-        entryDistribution,
-        source: "supabase" as const,
+        attendanceSeries: [],
+        entryDistribution: [],
       };
     },
   });

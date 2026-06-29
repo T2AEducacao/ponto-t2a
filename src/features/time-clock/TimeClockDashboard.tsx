@@ -8,6 +8,7 @@ import {
   LogOut,
   MapPin,
   Moon,
+  Plus,
   Search,
   ShieldCheck,
   Sun,
@@ -46,13 +47,6 @@ import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 
 import {
-  attendanceSeries as mockAttendanceSeries,
-  clockRecords as mockClockRecords,
-  employees as mockEmployees,
-  entryDistribution as mockEntryDistribution,
-  workSites as mockWorkSites,
-} from "./mock-data";
-import {
   formatWorkedTime,
   getClockEventLabel,
   getLocationStatusLabel,
@@ -65,6 +59,7 @@ import type {
   LocationStatus,
   WorkSite,
 } from "./types";
+import { useCreateEmployee, useCreateWorkSite } from "./use-admin-mutations";
 import { useAuth } from "./use-auth";
 import { getNextClockEvent, useClockRegistration } from "./use-clock-registration";
 import { useTimeClockData } from "./use-time-clock-data";
@@ -75,33 +70,50 @@ type DashboardData = {
   clockRecords: ClockRecord[];
   attendanceSeries: AttendanceSeriesPoint[];
   entryDistribution: HourDistributionPoint[];
-  source: "mock" | "supabase";
 };
 
-const fallbackDashboardData: DashboardData = {
-  employees: mockEmployees,
-  workSites: mockWorkSites,
-  clockRecords: mockClockRecords,
-  attendanceSeries: mockAttendanceSeries,
-  entryDistribution: mockEntryDistribution,
-  source: "mock",
+const emptyDashboardData: DashboardData = {
+  employees: [],
+  workSites: [],
+  clockRecords: [],
+  attendanceSeries: [],
+  entryDistribution: [],
 };
 
 export function TimeClockDashboard() {
   const auth = useAuth();
-  const timeClockQuery = useTimeClockData();
-  const dashboardData = timeClockQuery.data ?? fallbackDashboardData;
+  const timeClockQuery = useTimeClockData({ enabled: Boolean(auth.user) });
+  const dashboardData = timeClockQuery.data ?? emptyDashboardData;
   const currentEmployee =
     dashboardData.employees.find((employee) => employee.userId === auth.user?.id) ??
-    dashboardData.employees[0] ??
-    mockEmployees[0];
+    dashboardData.employees[0];
+
+  if (auth.isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
+        <Card className="w-full max-w-md rounded-md shadow-sm">
+          <CardContent className="p-6 text-sm text-muted-foreground">Carregando sessão...</CardContent>
+        </Card>
+      </main>
+    );
+  }
+
+  if (!auth.user) {
+    return (
+      <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+          <PublicHeader />
+          <LoginPanel signIn={auth.signIn} />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
         <AppHeader
           employees={dashboardData.employees}
-          source={dashboardData.source}
           userEmail={auth.user?.email}
           onSignOut={auth.signOut}
           workSites={dashboardData.workSites}
@@ -130,16 +142,14 @@ export function TimeClockDashboard() {
           </div>
 
           <TabsContent value="admin" className="m-0">
-            <AdminDashboard data={dashboardData} />
+            <AdminDashboard data={dashboardData} error={timeClockQuery.error} />
           </TabsContent>
           <TabsContent value="employee" className="m-0">
             <EmployeeDashboard
               clockRecords={dashboardData.clockRecords}
               employee={currentEmployee}
               entryDistribution={dashboardData.entryDistribution}
-              isAuthLoading={auth.isLoading}
               sessionUserId={auth.user?.id}
-              signIn={auth.signIn}
               workSites={dashboardData.workSites}
             />
           </TabsContent>
@@ -149,16 +159,40 @@ export function TimeClockDashboard() {
   );
 }
 
+function PublicHeader() {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
+
+  return (
+    <header className="flex items-center justify-between rounded-md border border-border bg-card px-4 py-4 shadow-sm">
+      <div>
+        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 text-emerald-600" />
+          Controle interno T2A
+        </div>
+        <h1 className="mt-1 text-2xl font-semibold">Controle de ponto</h1>
+      </div>
+      <Button
+        aria-label={isDark ? "Ativar modo claro" : "Ativar modo escuro"}
+        size="icon"
+        variant="outline"
+        onClick={toggleTheme}
+        title={isDark ? "Modo claro" : "Modo escuro"}
+      >
+        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      </Button>
+    </header>
+  );
+}
+
 function AppHeader({
   employees,
   onSignOut,
-  source,
   userEmail,
   workSites,
 }: {
   employees: Employee[];
   onSignOut: () => Promise<void>;
-  source: DashboardData["source"];
   userEmail?: string;
   workSites: WorkSite[];
 }) {
@@ -184,7 +218,7 @@ function AppHeader({
           <HeaderStat label="Ativos" value={String(activeEmployees.length)} />
           <HeaderStat label="Locais" value={String(workSites.length)} />
         </div>
-        <Badge variant="secondary">{source === "supabase" ? "Supabase" : "Demo"}</Badge>
+        <Badge variant="secondary">Supabase</Badge>
         {userEmail ? (
           <Button size="sm" variant="outline" onClick={() => void onSignOut()}>
             <LogOut className="h-4 w-4" />
@@ -214,7 +248,7 @@ function HeaderStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AdminDashboard({ data }: { data: DashboardData }) {
+function AdminDashboard({ data, error }: { data: DashboardData; error: Error | null }) {
   const activeEmployees = data.employees.filter((employee) => employee.status === "active");
   const presentEmployees = activeEmployees.filter((employee) => employee.dayStatus === "present");
   const pendingEntryEmployees = activeEmployees.filter(
@@ -243,6 +277,14 @@ function AdminDashboard({ data }: { data: DashboardData }) {
 
   return (
     <div className="grid gap-6">
+      {error ? (
+        <Card className="rounded-md border-destructive/30 shadow-sm">
+          <CardContent className="p-5 text-sm text-destructive">
+            Não foi possível carregar os dados reais do Supabase. Verifique se a migration do
+            sistema de ponto foi aplicada no projeto.
+          </CardContent>
+        </Card>
+      ) : null}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={Users}
@@ -345,12 +387,192 @@ function AdminDashboard({ data }: { data: DashboardData }) {
         </Card>
       </section>
 
+      <AdminCreatePanel />
+
       <section className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
         <EmployeesTable employees={data.employees} />
         <RecordsTable clockRecords={data.clockRecords} />
       </section>
     </div>
   );
+}
+
+function AdminCreatePanel() {
+  return (
+    <section className="grid gap-6 lg:grid-cols-2">
+      <CreateEmployeeCard />
+      <CreateWorkSiteCard />
+    </section>
+  );
+}
+
+function CreateEmployeeCard() {
+  const createEmployee = useCreateEmployee();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [position, setPosition] = useState("");
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    createEmployee.mutate(
+      { email, fullName, position },
+      {
+        onSuccess: () => {
+          setFullName("");
+          setEmail("");
+          setPosition("");
+        },
+      },
+    );
+  }
+
+  return (
+    <Card className="rounded-md shadow-sm">
+      <CardHeader className="p-5">
+        <CardTitle className="text-base">Cadastrar funcionário</CardTitle>
+        <p className="mt-1 text-sm text-muted-foreground">Cria um funcionário ativo no Supabase.</p>
+      </CardHeader>
+      <CardContent className="p-5 pt-0">
+        <form className="grid gap-3" onSubmit={handleSubmit}>
+          <Input
+            onChange={(event) => setFullName(event.target.value)}
+            placeholder="Nome completo"
+            value={fullName}
+          />
+          <Input
+            inputMode="email"
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="E-mail"
+            type="email"
+            value={email}
+          />
+          <Input
+            onChange={(event) => setPosition(event.target.value)}
+            placeholder="Cargo"
+            value={position}
+          />
+          <MutationFeedback
+            error={createEmployee.error}
+            success={createEmployee.isSuccess}
+            successLabel="Funcionário cadastrado."
+          />
+          <Button disabled={createEmployee.isPending || !fullName || !email || !position} type="submit">
+            <Plus className="h-4 w-4" />
+            {createEmployee.isPending ? "Salvando..." : "Cadastrar"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CreateWorkSiteCard() {
+  const createWorkSite = useCreateWorkSite();
+  const [name, setName] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [radiusMeters, setRadiusMeters] = useState("100");
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    createWorkSite.mutate(
+      {
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        name,
+        radiusMeters: Number(radiusMeters),
+      },
+      {
+        onSuccess: () => {
+          setName("");
+          setLatitude("");
+          setLongitude("");
+          setRadiusMeters("100");
+        },
+      },
+    );
+  }
+
+  return (
+    <Card className="rounded-md shadow-sm">
+      <CardHeader className="p-5">
+        <CardTitle className="text-base">Cadastrar local de trabalho</CardTitle>
+        <p className="mt-1 text-sm text-muted-foreground">Define geofence para validar registros.</p>
+      </CardHeader>
+      <CardContent className="p-5 pt-0">
+        <form className="grid gap-3" onSubmit={handleSubmit}>
+          <Input onChange={(event) => setName(event.target.value)} placeholder="Nome do local" value={name} />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Input
+              inputMode="decimal"
+              onChange={(event) => setLatitude(event.target.value)}
+              placeholder="Latitude"
+              value={latitude}
+            />
+            <Input
+              inputMode="decimal"
+              onChange={(event) => setLongitude(event.target.value)}
+              placeholder="Longitude"
+              value={longitude}
+            />
+            <Input
+              inputMode="numeric"
+              onChange={(event) => setRadiusMeters(event.target.value)}
+              placeholder="Raio (m)"
+              value={radiusMeters}
+            />
+          </div>
+          <MutationFeedback
+            error={createWorkSite.error}
+            success={createWorkSite.isSuccess}
+            successLabel="Local cadastrado."
+          />
+          <Button
+            disabled={
+              createWorkSite.isPending ||
+              !name ||
+              !latitude ||
+              !longitude ||
+              !radiusMeters ||
+              Number(radiusMeters) <= 0
+            }
+            type="submit"
+          >
+            <Plus className="h-4 w-4" />
+            {createWorkSite.isPending ? "Salvando..." : "Cadastrar"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MutationFeedback({
+  error,
+  success,
+  successLabel,
+}: {
+  error: Error | null;
+  success: boolean;
+  successLabel: string;
+}) {
+  if (error) {
+    return (
+      <p className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        Não foi possível salvar. Verifique permissões de admin e a migration do banco.
+      </p>
+    );
+  }
+
+  if (success) {
+    return (
+      <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        {successLabel}
+      </p>
+    );
+  }
+
+  return null;
 }
 
 function MetricCard({
@@ -415,21 +637,29 @@ function EmployeesTable({ employees }: { employees: Employee[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {employees.map((employee) => (
-              <TableRow key={employee.id}>
-                <TableCell>
-                  <div className="font-medium">{employee.name}</div>
-                  <div className="text-xs text-muted-foreground">{employee.role}</div>
-                </TableCell>
-                <TableCell>
-                  <EmployeeStatusBadge employee={employee} />
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium">{formatWorkedTime(employee.todayWorkedMinutes)}</div>
-                  <div className="text-xs text-muted-foreground">{employee.lastClockLabel}</div>
+            {employees.length ? (
+              employees.map((employee) => (
+                <TableRow key={employee.id}>
+                  <TableCell>
+                    <div className="font-medium">{employee.name}</div>
+                    <div className="text-xs text-muted-foreground">{employee.role}</div>
+                  </TableCell>
+                  <TableCell>
+                    <EmployeeStatusBadge employee={employee} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{formatWorkedTime(employee.todayWorkedMinutes)}</div>
+                    <div className="text-xs text-muted-foreground">{employee.lastClockLabel}</div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
+                  Nenhum funcionário cadastrado.
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </CardContent>
@@ -486,26 +716,34 @@ function RecordsTable({ clockRecords }: { clockRecords: ClockRecord[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clockRecords.map((record) => (
-              <TableRow key={record.id}>
-                <TableCell>
-                  <div className="font-medium">{record.employeeName}</div>
-                  <div className="text-xs text-muted-foreground">{record.device}</div>
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium">{getClockEventLabel(record.type)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {record.date} às {record.time}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <LocationBadge status={record.locationStatus} />
-                  <div className="mt-1 max-w-48 truncate text-xs text-muted-foreground">
-                    {record.approximateAddress}
-                  </div>
+            {clockRecords.length ? (
+              clockRecords.map((record) => (
+                <TableRow key={record.id}>
+                  <TableCell>
+                    <div className="font-medium">{record.employeeName}</div>
+                    <div className="text-xs text-muted-foreground">{record.device}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{getClockEventLabel(record.type)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {record.date} às {record.time}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <LocationBadge status={record.locationStatus} />
+                    <div className="mt-1 max-w-48 truncate text-xs text-muted-foreground">
+                      {record.approximateAddress}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={3} className="h-24 text-center text-sm text-muted-foreground">
+                  Nenhum registro de ponto encontrado.
                 </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </CardContent>
@@ -616,35 +854,34 @@ function EmployeeDashboard({
   clockRecords,
   employee,
   entryDistribution,
-  isAuthLoading,
   sessionUserId,
-  signIn,
   workSites,
 }: {
   clockRecords: ClockRecord[];
-  employee: Employee;
+  employee?: Employee;
   entryDistribution: HourDistributionPoint[];
-  isAuthLoading: boolean;
   sessionUserId?: string;
-  signIn: (email: string, password: string) => Promise<void>;
   workSites: WorkSite[];
 }) {
-  const employeeRecords = clockRecords.filter((record) => record.employeeId === employee.id);
-  const nextEventType = getNextClockEvent(employeeRecords);
   const registration = useClockRegistration();
-  const workSite = workSites.find((site) => site.id === employee.workSiteId);
 
-  if (isAuthLoading) {
+  if (!employee) {
     return (
       <Card className="rounded-md shadow-sm">
-        <CardContent className="p-6 text-sm text-muted-foreground">Carregando sessão...</CardContent>
+        <CardHeader className="p-5">
+          <CardTitle className="text-base">Funcionário não cadastrado</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sua sessão está ativa, mas ainda não existe um cadastro de funcionário vinculado ao seu
+            usuário no Supabase.
+          </p>
+        </CardHeader>
       </Card>
     );
   }
 
-  if (!sessionUserId) {
-    return <LoginPanel signIn={signIn} />;
-  }
+  const employeeRecords = clockRecords.filter((record) => record.employeeId === employee.id);
+  const nextEventType = getNextClockEvent(employeeRecords);
+  const workSite = workSites.find((site) => site.id === employee.workSiteId);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
@@ -657,9 +894,9 @@ function EmployeeDashboard({
             </div>
             <Button
               className="h-20 justify-center rounded-md text-lg"
-              disabled={registration.isPending || !nextEventType}
+              disabled={registration.isPending || !nextEventType || !sessionUserId}
               onClick={() =>
-                nextEventType
+                nextEventType && sessionUserId
                   ? registration.mutate({
                       employee,
                       nextEventType,
