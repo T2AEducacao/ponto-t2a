@@ -7,8 +7,10 @@ import {
   LogIn,
   LogOut,
   MapPin,
+  Moon,
   Search,
   ShieldCheck,
+  Sun,
   Users,
 } from "lucide-react";
 import {
@@ -39,57 +41,64 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 
 import {
-  attendanceSeries,
-  clockRecords,
-  employees,
-  entryDistribution,
-  workSites,
+  attendanceSeries as mockAttendanceSeries,
+  clockRecords as mockClockRecords,
+  employees as mockEmployees,
+  entryDistribution as mockEntryDistribution,
+  workSites as mockWorkSites,
 } from "./mock-data";
 import {
   formatWorkedTime,
   getClockEventLabel,
   getLocationStatusLabel,
 } from "./time-utils";
-import type { ClockRecord, Employee, LocationStatus } from "./types";
+import type {
+  AttendanceSeriesPoint,
+  ClockRecord,
+  Employee,
+  HourDistributionPoint,
+  LocationStatus,
+  WorkSite,
+} from "./types";
+import { useTimeClockData } from "./use-time-clock-data";
 
-const activeEmployees = employees.filter((employee) => employee.status === "active");
-const presentEmployees = activeEmployees.filter((employee) => employee.dayStatus === "present");
-const pendingEntryEmployees = activeEmployees.filter(
-  (employee) => employee.dayStatus === "pending-entry",
-);
-const missingExitEmployees = activeEmployees.filter(
-  (employee) => employee.dayStatus === "missing-exit",
-);
+type DashboardData = {
+  employees: Employee[];
+  workSites: WorkSite[];
+  clockRecords: ClockRecord[];
+  attendanceSeries: AttendanceSeriesPoint[];
+  entryDistribution: HourDistributionPoint[];
+  source: "mock" | "supabase";
+};
 
-const locationSummary = [
-  {
-    name: "Dentro",
-    value: clockRecords.filter((record) => record.locationStatus === "inside").length,
-    color: "#16a34a",
-  },
-  {
-    name: "Fora",
-    value: clockRecords.filter((record) => record.locationStatus === "outside").length,
-    color: "#dc2626",
-  },
-  {
-    name: "Sem local",
-    value: clockRecords.filter((record) => record.locationStatus === "unavailable").length,
-    color: "#94a3b8",
-  },
-];
+const fallbackDashboardData: DashboardData = {
+  employees: mockEmployees,
+  workSites: mockWorkSites,
+  clockRecords: mockClockRecords,
+  attendanceSeries: mockAttendanceSeries,
+  entryDistribution: mockEntryDistribution,
+  source: "mock",
+};
 
 const nextClockAction = "Saída para almoço";
-const currentEmployee = employees[0];
 
 export function TimeClockDashboard() {
+  const timeClockQuery = useTimeClockData();
+  const dashboardData = timeClockQuery.data ?? fallbackDashboardData;
+  const currentEmployee = dashboardData.employees[0] ?? mockEmployees[0];
+
   return (
-    <main className="min-h-screen bg-[oklch(0.985_0.004_247.9)] text-foreground">
+    <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
-        <AppHeader />
+        <AppHeader
+          employees={dashboardData.employees}
+          source={dashboardData.source}
+          workSites={dashboardData.workSites}
+        />
 
         <Tabs defaultValue="admin" className="flex flex-col gap-6">
           <div className="flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-center md:justify-between">
@@ -114,10 +123,14 @@ export function TimeClockDashboard() {
           </div>
 
           <TabsContent value="admin" className="m-0">
-            <AdminDashboard />
+            <AdminDashboard data={dashboardData} />
           </TabsContent>
           <TabsContent value="employee" className="m-0">
-            <EmployeeDashboard employee={currentEmployee} />
+            <EmployeeDashboard
+              clockRecords={dashboardData.clockRecords}
+              employee={currentEmployee}
+              entryDistribution={dashboardData.entryDistribution}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -125,7 +138,19 @@ export function TimeClockDashboard() {
   );
 }
 
-function AppHeader() {
+function AppHeader({
+  employees,
+  source,
+  workSites,
+}: {
+  employees: Employee[];
+  source: DashboardData["source"];
+  workSites: WorkSite[];
+}) {
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
+  const activeEmployees = employees.filter((employee) => employee.status === "active");
+
   return (
     <header className="flex flex-col gap-4 rounded-md border border-border bg-card px-4 py-4 shadow-sm md:flex-row md:items-center md:justify-between">
       <div>
@@ -137,11 +162,23 @@ function AppHeader() {
           Controle de ponto
         </h1>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-        <HeaderStat label="Agora" value="10:15" />
-        <HeaderStat label="Hoje" value="29/06" />
-        <HeaderStat label="Ativos" value={String(activeEmployees.length)} />
-        <HeaderStat label="Locais" value={String(workSites.length)} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <HeaderStat label="Agora" value="10:15" />
+          <HeaderStat label="Hoje" value="29/06" />
+          <HeaderStat label="Ativos" value={String(activeEmployees.length)} />
+          <HeaderStat label="Locais" value={String(workSites.length)} />
+        </div>
+        <Badge variant="secondary">{source === "supabase" ? "Supabase" : "Demo"}</Badge>
+        <Button
+          aria-label={isDark ? "Ativar modo claro" : "Ativar modo escuro"}
+          size="icon"
+          variant="outline"
+          onClick={toggleTheme}
+          title={isDark ? "Modo claro" : "Modo escuro"}
+        >
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </Button>
       </div>
     </header>
   );
@@ -156,7 +193,33 @@ function HeaderStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AdminDashboard() {
+function AdminDashboard({ data }: { data: DashboardData }) {
+  const activeEmployees = data.employees.filter((employee) => employee.status === "active");
+  const presentEmployees = activeEmployees.filter((employee) => employee.dayStatus === "present");
+  const pendingEntryEmployees = activeEmployees.filter(
+    (employee) => employee.dayStatus === "pending-entry",
+  );
+  const missingExitEmployees = activeEmployees.filter(
+    (employee) => employee.dayStatus === "missing-exit",
+  );
+  const locationSummary = [
+    {
+      name: "Dentro",
+      value: data.clockRecords.filter((record) => record.locationStatus === "inside").length,
+      color: "#16a34a",
+    },
+    {
+      name: "Fora",
+      value: data.clockRecords.filter((record) => record.locationStatus === "outside").length,
+      color: "#dc2626",
+    },
+    {
+      name: "Sem local",
+      value: data.clockRecords.filter((record) => record.locationStatus === "unavailable").length,
+      color: "#94a3b8",
+    },
+  ];
+
   return (
     <div className="grid gap-6">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -177,7 +240,7 @@ function AdminDashboard() {
         <MetricCard
           icon={Clock3}
           label="Registros hoje"
-          value={String(clockRecords.length)}
+          value={String(data.clockRecords.length)}
           helper="Atualização em tempo real"
           tone="blue"
         />
@@ -201,7 +264,7 @@ function AdminDashboard() {
           </CardHeader>
           <CardContent className="h-72 p-5 pt-0">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={attendanceSeries} margin={{ left: -24, right: 8, top: 8 }}>
+              <AreaChart data={data.attendanceSeries} margin={{ left: -24, right: 8, top: 8 }}>
                 <defs>
                   <linearGradient id="presentes" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="5%" stopColor="#16a34a" stopOpacity={0.28} />
@@ -262,8 +325,8 @@ function AdminDashboard() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
-        <EmployeesTable />
-        <RecordsTable />
+        <EmployeesTable employees={data.employees} />
+        <RecordsTable clockRecords={data.clockRecords} />
       </section>
     </div>
   );
@@ -305,7 +368,7 @@ function MetricCard({
   );
 }
 
-function EmployeesTable() {
+function EmployeesTable({ employees }: { employees: Employee[] }) {
   return (
     <Card className="rounded-md shadow-sm">
       <CardHeader className="gap-4 p-5">
@@ -379,7 +442,7 @@ function EmployeeStatusBadge({ employee }: { employee: Employee }) {
   );
 }
 
-function RecordsTable() {
+function RecordsTable({ clockRecords }: { clockRecords: ClockRecord[] }) {
   return (
     <Card className="rounded-md shadow-sm">
       <CardHeader className="flex flex-row items-start justify-between gap-4 p-5">
@@ -444,7 +507,15 @@ function LocationBadge({ status }: { status: LocationStatus }) {
   );
 }
 
-function EmployeeDashboard({ employee }: { employee: Employee }) {
+function EmployeeDashboard({
+  clockRecords,
+  employee,
+  entryDistribution,
+}: {
+  clockRecords: ClockRecord[];
+  employee: Employee;
+  entryDistribution: HourDistributionPoint[];
+}) {
   return (
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <section className="grid gap-6">
