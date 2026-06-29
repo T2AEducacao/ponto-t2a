@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Ponto T2A" },
+      { name: "description", content: "Happy Home Hub centralizes smart home device control and automation for a seamless living experience." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Ponto T2A" },
+      { property: "og:description", content: "Happy Home Hub centralizes smart home device control and automation for a seamless living experience." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Ponto T2A" },
+      { name: "twitter:description", content: "Happy Home Hub centralizes smart home device control and automation for a seamless living experience." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6bb3417e-cf9c-401d-86ed-80aff99506f6/id-preview-9f010410--30c8e556-fb71-4a6f-b8c2-392a4a524002.lovable.app-1782738246176.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/6bb3417e-cf9c-401d-86ed-80aff99506f6/id-preview-9f010410--30c8e556-fb71-4a6f-b8c2-392a4a524002.lovable.app-1782738246176.png" },
     ],
     links: [
       {
