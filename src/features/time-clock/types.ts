@@ -8,6 +8,7 @@ export type WorkDayStatus = "present" | "absent" | "pending-entry" | "missing-ex
 
 export type Employee = {
   id: string;
+  userId?: string | null;
   name: string;
   role: string;
   email: string;

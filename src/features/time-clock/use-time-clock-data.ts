@@ -17,10 +17,12 @@ function mapEmployee(row: {
   position: string;
   email: string;
   status: "active" | "inactive";
+  user_id: string | null;
   work_site_id: string | null;
 }): Employee {
   return {
     id: row.id,
+    userId: row.user_id,
     name: row.full_name,
     role: row.position,
     email: row.email,

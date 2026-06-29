@@ -26,6 +26,7 @@ export const workSites: WorkSite[] = [
 export const employees: Employee[] = [
   {
     id: "emp-1",
+    userId: null,
     name: "Ana Ribeiro",
     role: "Coordenadora pedagogica",
     email: "ana.ribeiro@t2a.com.br",
@@ -37,6 +38,7 @@ export const employees: Employee[] = [
   },
   {
     id: "emp-2",
+    userId: null,
     name: "Bruno Martins",
     role: "Instrutor",
     email: "bruno.martins@t2a.com.br",
@@ -48,6 +50,7 @@ export const employees: Employee[] = [
   },
   {
     id: "emp-3",
+    userId: null,
     name: "Carla Souza",
     role: "Administrativo",
     email: "carla.souza@t2a.com.br",
@@ -59,6 +62,7 @@ export const employees: Employee[] = [
   },
   {
     id: "emp-4",
+    userId: null,
     name: "Diego Lima",
     role: "Suporte",
     email: "diego.lima@t2a.com.br",
@@ -70,6 +74,7 @@ export const employees: Employee[] = [
   },
   {
     id: "emp-5",
+    userId: null,
     name: "Fernanda Costa",
     role: "Comercial",
     email: "fernanda.costa@t2a.com.br",

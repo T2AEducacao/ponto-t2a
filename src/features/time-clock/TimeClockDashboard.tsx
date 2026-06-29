@@ -13,6 +13,7 @@ import {
   Sun,
   Users,
 } from "lucide-react";
+import { useState, type FormEvent } from "react";
 import {
   Area,
   AreaChart,
@@ -64,6 +65,8 @@ import type {
   LocationStatus,
   WorkSite,
 } from "./types";
+import { useAuth } from "./use-auth";
+import { getNextClockEvent, useClockRegistration } from "./use-clock-registration";
 import { useTimeClockData } from "./use-time-clock-data";
 
 type DashboardData = {
@@ -84,12 +87,14 @@ const fallbackDashboardData: DashboardData = {
   source: "mock",
 };
 
-const nextClockAction = "Saída para almoço";
-
 export function TimeClockDashboard() {
+  const auth = useAuth();
   const timeClockQuery = useTimeClockData();
   const dashboardData = timeClockQuery.data ?? fallbackDashboardData;
-  const currentEmployee = dashboardData.employees[0] ?? mockEmployees[0];
+  const currentEmployee =
+    dashboardData.employees.find((employee) => employee.userId === auth.user?.id) ??
+    dashboardData.employees[0] ??
+    mockEmployees[0];
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -97,6 +102,8 @@ export function TimeClockDashboard() {
         <AppHeader
           employees={dashboardData.employees}
           source={dashboardData.source}
+          userEmail={auth.user?.email}
+          onSignOut={auth.signOut}
           workSites={dashboardData.workSites}
         />
 
@@ -130,6 +137,10 @@ export function TimeClockDashboard() {
               clockRecords={dashboardData.clockRecords}
               employee={currentEmployee}
               entryDistribution={dashboardData.entryDistribution}
+              isAuthLoading={auth.isLoading}
+              sessionUserId={auth.user?.id}
+              signIn={auth.signIn}
+              workSites={dashboardData.workSites}
             />
           </TabsContent>
         </Tabs>
@@ -140,11 +151,15 @@ export function TimeClockDashboard() {
 
 function AppHeader({
   employees,
+  onSignOut,
   source,
+  userEmail,
   workSites,
 }: {
   employees: Employee[];
+  onSignOut: () => Promise<void>;
   source: DashboardData["source"];
+  userEmail?: string;
   workSites: WorkSite[];
 }) {
   const { theme, toggleTheme } = useTheme();
@@ -170,6 +185,12 @@ function AppHeader({
           <HeaderStat label="Locais" value={String(workSites.length)} />
         </div>
         <Badge variant="secondary">{source === "supabase" ? "Supabase" : "Demo"}</Badge>
+        {userEmail ? (
+          <Button size="sm" variant="outline" onClick={() => void onSignOut()}>
+            <LogOut className="h-4 w-4" />
+            Sair
+          </Button>
+        ) : null}
         <Button
           aria-label={isDark ? "Ativar modo claro" : "Ativar modo escuro"}
           size="icon"
@@ -507,15 +528,124 @@ function LocationBadge({ status }: { status: LocationStatus }) {
   );
 }
 
+function LoginPanel({ signIn }: { signIn: (email: string, password: string) => Promise<void> }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage("");
+    setIsSubmitting(true);
+
+    try {
+      await signIn(email, password);
+    } catch {
+      setErrorMessage("Não foi possível entrar com essas credenciais.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+      <Card className="rounded-md shadow-sm">
+        <CardHeader className="p-5">
+          <CardTitle className="text-base">Entrar como funcionário</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Use seu e-mail corporativo para registrar e acompanhar seus pontos.
+          </p>
+        </CardHeader>
+        <CardContent className="p-5 pt-0">
+          <form className="grid gap-4" onSubmit={handleSubmit}>
+            <label className="grid gap-2 text-sm font-medium">
+              E-mail
+              <Input
+                autoComplete="email"
+                inputMode="email"
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="voce@t2a.com.br"
+                type="email"
+                value={email}
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium">
+              Senha
+              <Input
+                autoComplete="current-password"
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Sua senha"
+                type="password"
+                value={password}
+              />
+            </label>
+            {errorMessage ? (
+              <p className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {errorMessage}
+              </p>
+            ) : null}
+            <Button className="h-11" disabled={isSubmitting || !email || !password} type="submit">
+              <LogIn className="h-4 w-4" />
+              {isSubmitting ? "Entrando..." : "Entrar"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-md shadow-sm">
+        <CardHeader className="p-5">
+          <CardTitle className="text-base">Registro protegido</CardTitle>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Após o login, o botão de ponto captura localização, navegador, dispositivo e valida a
+            sequência do dia.
+          </p>
+        </CardHeader>
+        <CardContent className="grid gap-3 p-5 pt-0 text-sm text-muted-foreground">
+          <div className="rounded-md border border-border p-3">Entrada</div>
+          <div className="rounded-md border border-border p-3">Saída para almoço</div>
+          <div className="rounded-md border border-border p-3">Volta do almoço</div>
+          <div className="rounded-md border border-border p-3">Saída final</div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function EmployeeDashboard({
   clockRecords,
   employee,
   entryDistribution,
+  isAuthLoading,
+  sessionUserId,
+  signIn,
+  workSites,
 }: {
   clockRecords: ClockRecord[];
   employee: Employee;
   entryDistribution: HourDistributionPoint[];
+  isAuthLoading: boolean;
+  sessionUserId?: string;
+  signIn: (email: string, password: string) => Promise<void>;
+  workSites: WorkSite[];
 }) {
+  const employeeRecords = clockRecords.filter((record) => record.employeeId === employee.id);
+  const nextEventType = getNextClockEvent(employeeRecords);
+  const registration = useClockRegistration();
+  const workSite = workSites.find((site) => site.id === employee.workSiteId);
+
+  if (isAuthLoading) {
+    return (
+      <Card className="rounded-md shadow-sm">
+        <CardContent className="p-6 text-sm text-muted-foreground">Carregando sessão...</CardContent>
+      </Card>
+    );
+  }
+
+  if (!sessionUserId) {
+    return <LoginPanel signIn={signIn} />;
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <section className="grid gap-6">
@@ -525,10 +655,37 @@ function EmployeeDashboard({
               <p className="text-sm text-muted-foreground">Horário atual</p>
               <div className="mt-1 text-5xl font-semibold">10:15</div>
             </div>
-            <Button className="h-20 justify-center rounded-md text-lg">
+            <Button
+              className="h-20 justify-center rounded-md text-lg"
+              disabled={registration.isPending || !nextEventType}
+              onClick={() =>
+                nextEventType
+                  ? registration.mutate({
+                      employee,
+                      nextEventType,
+                      userId: sessionUserId,
+                      workSite,
+                    })
+                  : undefined
+              }
+            >
               <LogIn className="h-6 w-6" />
-              Registrar {nextClockAction}
+              {registration.isPending
+                ? "Registrando..."
+                : nextEventType
+                  ? `Registrar ${getClockEventLabel(nextEventType)}`
+                  : "Dia completo"}
             </Button>
+            {registration.error ? (
+              <p className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                Não foi possível registrar agora. Verifique se a migration foi aplicada e tente novamente.
+              </p>
+            ) : null}
+            {registration.isSuccess ? (
+              <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                Ponto registrado com sucesso.
+              </p>
+            ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
               <MiniInfo label="Último registro" value={employee.lastClockLabel} />
               <MiniInfo label="Horas trabalhadas" value={formatWorkedTime(employee.todayWorkedMinutes)} />
@@ -572,11 +729,9 @@ function EmployeeDashboard({
             <CardTitle className="text-base">Histórico recente</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-3 p-5 pt-0">
-            {clockRecords
-              .filter((record) => record.employeeId === employee.id)
-              .map((record) => (
-                <RecordDetail key={record.id} record={record} />
-              ))}
+            {employeeRecords.map((record) => (
+              <RecordDetail key={record.id} record={record} />
+            ))}
           </CardContent>
         </Card>
       </section>
