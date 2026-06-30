@@ -1,21 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { TimeClockDashboard } from "@/features/time-clock/TimeClockDashboard";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "Controle de Ponto T2A" },
-      {
-        name: "description",
-        content: "Sistema interno para registro e acompanhamento de ponto da equipe T2A.",
-      },
-      { property: "og:title", content: "Controle de Ponto T2A" },
-      {
-        property: "og:description",
-        content: "Registro de entrada, saida, geolocalizacao e acompanhamento administrativo.",
-      },
-    ],
-  }),
-  component: TimeClockDashboard,
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) throw redirect({ to: "/auth" });
+    // Decide destination based on app_metadata role
+    const role = (data.user.app_metadata as { role?: string } | null)?.role;
+    throw redirect({ to: role === "admin" ? "/admin" : "/ponto" });
+  },
+  component: () => null,
 });
