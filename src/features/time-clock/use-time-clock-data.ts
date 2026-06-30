@@ -75,7 +75,7 @@ function mapClockRecord(row: ClockRecordRow): ClockRecord {
     longitude: row.longitude,
     accuracyMeters: row.accuracy_meters,
     approximateAddress: row.approximate_address ?? "Localização indisponível",
-    ipAddress: row.ip_address ?? "indisponível",
+    ipAddress: typeof row.ip_address === "string" && row.ip_address ? row.ip_address : "indisponível",
     browser: row.browser ?? "indisponível",
     operatingSystem: row.operating_system ?? "indisponível",
     device: row.device ?? "indisponível",
