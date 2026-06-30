@@ -43,7 +43,7 @@ function mapWorkSite(row: {
   };
 }
 
-function mapClockRecord(row: {
+type ClockRecordRow = {
   id: string;
   employee_id: string;
   event_type: ClockRecord["type"];
@@ -52,14 +52,16 @@ function mapClockRecord(row: {
   longitude: number | null;
   accuracy_meters: number | null;
   approximate_address: string | null;
-  ip_address: string | null;
+  ip_address: unknown;
   browser: string | null;
   operating_system: string | null;
   device: string | null;
   notes: string | null;
   location_status: ClockRecord["locationStatus"];
   employees: { full_name: string } | null;
-}): ClockRecord {
+};
+
+function mapClockRecord(row: ClockRecordRow): ClockRecord {
   const recordedAt = new Date(row.recorded_at);
 
   return {
@@ -73,7 +75,7 @@ function mapClockRecord(row: {
     longitude: row.longitude,
     accuracyMeters: row.accuracy_meters,
     approximateAddress: row.approximate_address ?? "Localização indisponível",
-    ipAddress: row.ip_address ?? "indisponível",
+    ipAddress: typeof row.ip_address === "string" && row.ip_address ? row.ip_address : "indisponível",
     browser: row.browser ?? "indisponível",
     operatingSystem: row.operating_system ?? "indisponível",
     device: row.device ?? "indisponível",

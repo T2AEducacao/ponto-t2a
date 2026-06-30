@@ -6,7 +6,7 @@ const STORAGE_KEY = "ponto-t2a-theme";
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") {
-    return "light";
+    return "dark";
   }
 
   const savedTheme = window.localStorage.getItem(STORAGE_KEY);
@@ -14,7 +14,7 @@ function getInitialTheme(): Theme {
     return savedTheme;
   }
 
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "dark";
 }
 
 export function useTheme() {
