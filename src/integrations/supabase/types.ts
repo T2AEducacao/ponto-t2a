@@ -24,7 +24,7 @@ export type Database = {
           employee_id: string
           event_type: Database["public"]["Enums"]["clock_event_type"]
           id: string
-          ip_address: string | null
+          ip_address: unknown
           latitude: number | null
           location_status: Database["public"]["Enums"]["location_status"]
           longitude: number | null
@@ -43,7 +43,7 @@ export type Database = {
           employee_id: string
           event_type: Database["public"]["Enums"]["clock_event_type"]
           id?: string
-          ip_address?: string | null
+          ip_address?: unknown
           latitude?: number | null
           location_status?: Database["public"]["Enums"]["location_status"]
           longitude?: number | null
@@ -62,7 +62,7 @@ export type Database = {
           employee_id?: string
           event_type?: Database["public"]["Enums"]["clock_event_type"]
           id?: string
-          ip_address?: string | null
+          ip_address?: unknown
           latitude?: number | null
           location_status?: Database["public"]["Enums"]["location_status"]
           longitude?: number | null
