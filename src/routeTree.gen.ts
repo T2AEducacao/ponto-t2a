@@ -17,6 +17,7 @@ import { Route as AuthenticatedAdminRelatoriosRouteImport } from './routes/_auth
 import { Route as AuthenticatedAdminRegistrosRouteImport } from './routes/_authenticated/admin/registros'
 import { Route as AuthenticatedAdminLocaisRouteImport } from './routes/_authenticated/admin/locais'
 import { Route as AuthenticatedAdminFuncionariosRouteImport } from './routes/_authenticated/admin/funcionarios'
+import { Route as AuthenticatedAdminConfiguracoesRouteImport } from './routes/_authenticated/admin/configuracoes'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -61,10 +62,17 @@ const AuthenticatedAdminFuncionariosRoute =
     path: '/admin/funcionarios',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminConfiguracoesRoute =
+  AuthenticatedAdminConfiguracoesRouteImport.update({
+    id: '/admin/configuracoes',
+    path: '/admin/configuracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin/configuracoes': typeof AuthenticatedAdminConfiguracoesRoute
   '/admin/funcionarios': typeof AuthenticatedAdminFuncionariosRoute
   '/admin/locais': typeof AuthenticatedAdminLocaisRoute
   '/admin/registros': typeof AuthenticatedAdminRegistrosRoute
@@ -74,6 +82,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/admin/configuracoes': typeof AuthenticatedAdminConfiguracoesRoute
   '/admin/funcionarios': typeof AuthenticatedAdminFuncionariosRoute
   '/admin/locais': typeof AuthenticatedAdminLocaisRoute
   '/admin/registros': typeof AuthenticatedAdminRegistrosRoute
@@ -85,6 +94,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/admin/configuracoes': typeof AuthenticatedAdminConfiguracoesRoute
   '/_authenticated/admin/funcionarios': typeof AuthenticatedAdminFuncionariosRoute
   '/_authenticated/admin/locais': typeof AuthenticatedAdminLocaisRoute
   '/_authenticated/admin/registros': typeof AuthenticatedAdminRegistrosRoute
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/admin/configuracoes'
     | '/admin/funcionarios'
     | '/admin/locais'
     | '/admin/registros'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/admin/configuracoes'
     | '/admin/funcionarios'
     | '/admin/locais'
     | '/admin/registros'
@@ -115,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/admin/configuracoes'
     | '/_authenticated/admin/funcionarios'
     | '/_authenticated/admin/locais'
     | '/_authenticated/admin/registros'
@@ -186,10 +199,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminFuncionariosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/configuracoes': {
+      id: '/_authenticated/admin/configuracoes'
+      path: '/admin/configuracoes'
+      fullPath: '/admin/configuracoes'
+      preLoaderRoute: typeof AuthenticatedAdminConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminConfiguracoesRoute: typeof AuthenticatedAdminConfiguracoesRoute
   AuthenticatedAdminFuncionariosRoute: typeof AuthenticatedAdminFuncionariosRoute
   AuthenticatedAdminLocaisRoute: typeof AuthenticatedAdminLocaisRoute
   AuthenticatedAdminRegistrosRoute: typeof AuthenticatedAdminRegistrosRoute
@@ -198,6 +219,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminConfiguracoesRoute: AuthenticatedAdminConfiguracoesRoute,
   AuthenticatedAdminFuncionariosRoute: AuthenticatedAdminFuncionariosRoute,
   AuthenticatedAdminLocaisRoute: AuthenticatedAdminLocaisRoute,
   AuthenticatedAdminRegistrosRoute: AuthenticatedAdminRegistrosRoute,
